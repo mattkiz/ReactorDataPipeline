@@ -9,13 +9,14 @@ class CalibrationCurve:
 
     def __init__(self, calibration_id: str = None, collection_time: datetime.datetime = None,
                  processed_time: datetime.datetime = None,
-                 user: str = "", df: pd.DataFrame = None,
+                 user: str = "", df: pd.DataFrame = None, stdev: float = None
                  ):
         self.calibration_id = calibration_id
         self.collection_time = collection_time
         self.processed_time = processed_time
         self.user = user
         self.df = df
+        self.stdev = stdev
         self.r_squared = None
         self.params = None
         self.regression = None
@@ -43,6 +44,10 @@ class CalibrationCurve:
     def load_curve_csv(self, filename: str):
         pass
 
+    @abc.abstractmethod
+    def set_standard_dev(self):
+        pass
+
 
 class UVSpecCalibration(CalibrationCurve):
     name = None
@@ -58,15 +63,23 @@ class UVSpecCalibration(CalibrationCurve):
         return
 
     def fit_linear_regression(self, x_raw=None, y_raw=None, set_fields=True):
-        CalibrationCurve.fit_linear_regression(self)
+        CalibrationCurve.fit_linear_regression(self, set_fields=set_fields)
+
+    def set_standard_dev(self):
+        if self.df is not None and self.name is not None:
+            self.stdev = self.df[self.name].std()
+        else:
+            self.stdev = None
 
 
 class HPLCCalibrationCurve(CalibrationCurve):
-    name = "None"
+    name = None
 
     def __init__(self):
         CalibrationCurve.__init__(self)
         self.fitted_to = ""
+        self.stdev_rtimes = None
+        self.mean_rtimes = None
 
     def load_curve_csv(self, filename):
         raw_df = pd.read_csv(filename)
@@ -91,9 +104,29 @@ class HPLCCalibrationCurve(CalibrationCurve):
             self.params = area_result.params
             self.fitted_to = "area"
 
+    def set_standard_dev(self):
+        if self.fitted_to is "":
+            print("Error")
+            return
+        self.stdev = self.df[self.fitted_to].std()
+
 
 class AcetateCalibrationCurve(HPLCCalibrationCurve):
     name = "acetate"
+
+    def __init__(self):
+        HPLCCalibrationCurve.__init__(self)
+
+
+class NitrateCalibrationCurve(HPLCCalibrationCurve):
+    name = "nitrate"
+
+    def __init__(self):
+        HPLCCalibrationCurve.__init__(self)
+
+
+class NitriteCalibrationCurve(HPLCCalibrationCurve):
+    name = "nitrite"
 
     def __init__(self):
         HPLCCalibrationCurve.__init__(self)
